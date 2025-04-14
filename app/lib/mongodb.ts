@@ -1,47 +1,46 @@
 import mongoose from 'mongoose';
 
-declare global {
-  var mongoose: {
-    conn: typeof mongoose | null;
-    promise: Promise<typeof mongoose> | null;
-  };
+interface GlobalMongo {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
 }
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/finance-visualizer';
+declare global {
+  var mongoose: GlobalMongo;
+}
+
+const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable');
 }
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+if (!global.mongoose) {
+  global.mongoose = { conn: null, promise: null };
 }
 
-async function connectDB() {
-  if (cached.conn) {
-    return cached.conn;
+async function connectDB(): Promise<typeof mongoose> {
+  if (global.mongoose.conn) {
+    return global.mongoose.conn;
   }
 
-  if (!cached.promise) {
+  if (!global.mongoose.promise) {
     const opts = {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+    global.mongoose.promise = mongoose.connect(MONGODB_URI, opts);
   }
 
   try {
-    cached.conn = await cached.promise;
+    const mongoose = await global.mongoose.promise;
+    global.mongoose.conn = mongoose;
   } catch (e) {
-    cached.promise = null;
+    global.mongoose.promise = null;
     throw e;
   }
 
-  return cached.conn;
+  return global.mongoose.conn!;
 }
 
 export default connectDB; 
